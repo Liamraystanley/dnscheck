@@ -1,0 +1,16 @@
+*.exe
+*.test
+*.prof
+vendor
+.glide
+*.lock
+
+dnscheck
+bindata.go
+
+release
+
+*.upx
+
+*.txt
+*.log
