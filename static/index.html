@@ -1,11 +1,13 @@
 <h2>Mass DNS Check Utility</h2>
 <hr>
 
-<form class="form-horizontal" method="POST" action="/check">
+{{ render "partials/messages.html" }}
+
+<form class="form-horizontal" method="POST" action="/">
     <div class="row">
         <div class="col-sm-12 col-md-8">
             <label for="hosts">Hostnames to lookup</label>
-            <textarea name="hosts" id="hosts" class="form-control" rows="7" placeholder="List of domains or '<ip> <host> <host>...' pairs"></textarea>
+            <textarea name="hosts" id="hosts" class="form-control" rows="7" placeholder="List of domains or '<ip> <host> <host>...' pairs">{{ if index .Messages "originalHosts" }}{{ .Messages.originalHosts }}{{ end }}</textarea>
         </div>
 
         <div class="col-md-12">

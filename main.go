@@ -19,13 +19,23 @@ import (
 
 // Config represents the configuration for the app
 type Config struct {
-	Debug bool   `arg:"-d"` // if debugging is enabled or not
-	Host  string `arg:"-h"` // hostname/ip to bind to
-	Port  int    `arg:"-p"` // port to bind
+	Debug    bool   `arg:"-d"` // if debugging is enabled or not
+	Host     string `arg:"-h"` // hostname/ip to bind to
+	Port     int    `arg:"-p"` // port to bind
+	Database string // database to utilize
+	Resolver string // local resolver
+}
+
+// setup some defaults
+var conf = Config{
+	Debug:    false,
+	Host:     "localhost",
+	Port:     3000,
+	Database: "dns.db",
+	Resolver: "127.0.0.1",
 }
 
 var logger *log.Logger
-var conf = Config{}
 
 func webLogRequest(ctx *iris.Context) {
 	logger.Printf("http: request %d from %s for: %s", ctx.ConnRequestNum(), ctx.RemoteIP(), ctx.PathString())
@@ -38,10 +48,43 @@ func handleError(ctx *iris.Context) {
 }
 
 func handleNotFound(ctx *iris.Context) {
-	ctx.MustRender("404.html", "", iris.RenderOptions{"layout": iris.NoLayout})
+	ctx.MustRender("404.html", "")
+}
+
+// getWebContext generates the web contexts for use with html templates
+func getWebContext(c *iris.Context) map[string]interface{} {
+	return iris.Map{
+		"Messages": c.GetFlashes(),
+	}
+}
+
+func saveLookup(results *DNSResults) (string, error) {
+	db, err := newDB()
+	if err != nil {
+		return "", err
+	}
+	defer db.Clean()
+
+	key := genWord(5, 6)
+
+	return key, db.SetStruct("records", key, results)
+}
+
+func getLookup(id string) (*DNSResults, error) {
+	db, err := newDB()
+	if err != nil {
+		return nil, err
+	}
+	defer db.Clean()
+
+	results := &DNSResults{}
+
+	return results, db.GetStruct("records", id, results)
 }
 
 func initWebserver() error {
+	logger.Println("initializing webserver")
+
 	iris.Config.Sessions.Cookie = "session"
 	iris.Config.LoggerOut = ioutil.Discard
 	iris.Config.DisableBanner = true
@@ -57,17 +100,61 @@ func initWebserver() error {
 	// 404
 	iris.OnError(iris.StatusNotFound, handleNotFound)
 
-	iris.Get("/", func(ctx *iris.Context) { ctx.MustRender("index.html", "") })
+	iris.Get("/", func(ctx *iris.Context) {
+		ctx.MustRender("index.html", getWebContext(ctx))
+	})("index")
 
-	iris.Post("/check", func(ctx *iris.Context) {
-		hosts := ctx.FormValueString("hosts")
+	iris.Post("/", func(ctx *iris.Context) {
+		input := ctx.FormValueString("hosts")
+		lookupType := ctx.FormValueString("recordtype")
 
-		fmt.Printf("%#v\n", hosts)
+		hosts, err := parseHosts(input)
+		if err != nil {
+			ctx.SetFlash("originalHosts", input)
+			ctx.SetFlash("error", err.Error())
 
-		ctx.MustRender("index.html", "")
+			ctx.MustRender("index.html", getWebContext(ctx))
+			return
+		}
+
+		results, err := LookupAll(hosts, "8.8.8.8", lookupType)
+		if err != nil {
+			ctx.SetFlash("originalHosts", input)
+			ctx.SetFlash("error", err.Error())
+
+			ctx.MustRender("index.html", getWebContext(ctx))
+			return
+		}
+
+		id, err := saveLookup(results)
+		if err != nil {
+			ctx.SetFlash("originalHosts", input)
+			ctx.SetFlash("error", err.Error())
+
+			ctx.MustRender("index.html", getWebContext(ctx))
+			return
+		}
+
+		ctx.RedirectTo("results", id)
 	})
 
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(conf.Port))
+	iris.Get("/r/:key", func(ctx *iris.Context) {
+		id := ctx.Param("key")
+
+		result, err := getLookup(id)
+		if err != nil {
+			fmt.Println(err)
+
+			ctx.MustRender("404.html", "")
+			return
+		}
+
+		out := getWebContext(ctx)
+		out["Results"] = result
+		ctx.MustRender("results.html", out)
+	})("results")
+
+	listener, err := net.Listen("tcp", conf.Host+":"+strconv.Itoa(conf.Port))
 	if err != nil {
 		return err
 	}
@@ -76,14 +163,15 @@ func initWebserver() error {
 }
 
 func main() {
-	conf.Debug = false
-	conf.Host = "0.0.0.0"
-	conf.Port = 3000
 	// initialize app flags
 	arg.MustParse(&conf)
 
 	// initialize logger
 	logger = log.New(os.Stdout, "", log.Lshortfile|log.LstdFlags)
+	logger.Println("initializing logger")
+
+	// initialize the database
+	initDatabase()
 
 	// initialize webserver
 	if err := initWebserver(); err != nil {

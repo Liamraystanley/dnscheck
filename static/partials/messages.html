@@ -1,0 +1,5 @@
+<div class="messages">
+    {{ if index .Messages "error" }}
+    <div class="alert alert-danger">{{ .Messages.error }}</div>
+    {{ end }}
+</div>

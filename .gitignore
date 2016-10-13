@@ -11,6 +11,7 @@ bindata.go
 release
 
 *.upx
+*.db
 
 *.txt
 *.log

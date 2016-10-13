@@ -1,0 +1,12 @@
+<h2>DNS Check Results</h2>
+<hr>
+
+{{ render "partials/messages.html" }}
+
+This is a test.
+
+{{ .Results }}
+
+{{ range .Results.Records }}
+<li>{{ printf "%#v\n" . }}</li>
+{{ end }}
