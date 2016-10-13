@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/kataras/go-template/html"
@@ -19,20 +19,23 @@ import (
 
 // Config represents the configuration for the app
 type Config struct {
-	Debug    bool   `arg:"-d"` // if debugging is enabled or not
-	Host     string `arg:"-h"` // hostname/ip to bind to
-	Port     int    `arg:"-p"` // port to bind
-	Database string // database to utilize
-	Resolver string // local resolver
+	Debug       bool   `arg:"-d,help:enable debugging mode"`
+	Host        string `arg:"-h,help:host/ip for which to bind to"`
+	Port        int    `arg:"-p,help:port which to bind to"`
+	Database    string `arg:"help:file path to the database for dnscheck"`
+	Resolver    string `arg:"-r,help:resolver to use to resolve query lookups"`
+	Concurrency int    `arg:"-c,help:number of records to use for resolving records"`
+	Limit       int    `arg:"-l,help:max queries per request"`
 }
 
 // setup some defaults
 var conf = Config{
-	Debug:    false,
-	Host:     "localhost",
-	Port:     3000,
-	Database: "dns.db",
-	Resolver: "127.0.0.1",
+	Debug:       false,
+	Host:        "localhost",
+	Port:        3000,
+	Database:    "dns.db",
+	Resolver:    "127.0.0.1",
+	Concurrency: 10,
 }
 
 var logger *log.Logger
@@ -86,12 +89,17 @@ func initWebserver() error {
 	logger.Println("initializing webserver")
 
 	iris.Config.Sessions.Cookie = "session"
-	iris.Config.LoggerOut = ioutil.Discard
+	iris.Config.LoggerOut = os.Stdout // ioutil.Discard
 	iris.Config.DisableBanner = true
 	iris.Config.Gzip = true
 	iris.Config.IsDevelopment = conf.Debug
 	iris.StaticWeb("/static", "./static", 1)
-	iris.UseTemplate(html.New(html.Config{Layout: "base.html"})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
+	iris.UseTemplate(html.New(html.Config{
+		Layout: "base.html",
+		Funcs: map[string]interface{}{
+			"contains": strings.Contains,
+		},
+	})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
 	iris.UseFunc(webLogRequest)
 
 	// 500
@@ -117,7 +125,7 @@ func initWebserver() error {
 			return
 		}
 
-		results, err := LookupAll(hosts, "8.8.8.8", lookupType)
+		results, err := LookupAll(hosts, conf.Resolver, lookupType)
 		if err != nil {
 			ctx.SetFlash("originalHosts", input)
 			ctx.SetFlash("error", err.Error())

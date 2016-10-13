@@ -10,7 +10,10 @@ import (
 )
 
 var recordTypes = [...]string{"A", "AAAA", "CNAME", "MX", "NS", "TXT"}
-var reDomain = regexp.MustCompile(`^(?:(?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s{1,})?(?P<domain>[A-Za-z0-9_.-]{2,350}\.[A-Za-z0-9]{2,63})$`)
+
+// ^(?:(?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s{1,})?(?P<domain>(?:(?:[A-Za-z0-9_.-]{2,350}\.[A-Za-z0-9]{2,63})\s+)+)$
+var reDomain = regexp.MustCompile(`^[A-Za-z0-9_.-]{2,350}\.[A-Za-z0-9]{2,63}$`)
+var reRawDomain = regexp.MustCompile(`^(?:(?P<ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+)?(?P<domains>[A-Za-z0-9_.\s-]{6,})$`)
 var reSpaces = regexp.MustCompile(`^[\t\n\v\f\r ]+|[\t\n\v\f\r ]+$`)
 var reNewlines = regexp.MustCompile(`[\n\r]+`)
 
@@ -24,18 +27,29 @@ func parseHosts(hosts string) (out []*Host, err error) {
 	input := strings.Split(reNewlines.ReplaceAllString(reSpaces.ReplaceAllString(hosts, ""), "\n"), "\n")
 
 	for i := 0; i < len(input); i++ {
-		line := reDomain.FindStringSubmatch(reSpaces.ReplaceAllString(input[i], ""))
-		if line == nil {
+		line := reRawDomain.FindStringSubmatch(reSpaces.ReplaceAllString(input[i], ""))
+		if len(line) != 3 {
 			return nil, errors.New("erronous input")
 		}
 
-		ip, host := line[1], line[2]
+		for _, domain := range strings.Split(line[2], " ") {
+			if domain == "" {
+				return nil, errors.New("erronous input")
+			}
 
-		if host == "" {
-			return nil, errors.New("erronous input")
+			domain = strings.Trim(domain, " ")
+			if !reDomain.MatchString(domain) {
+				return nil, errors.New("erronous input")
+			}
+
+			ip, host := line[1], domain
+
+			if host == "" {
+				return nil, errors.New("erronous input")
+			}
+
+			out = append(out, &Host{Name: host, WantIP: ip})
 		}
-
-		out = append(out, &Host{Name: host, WantIP: ip})
 	}
 
 	return out, nil
@@ -46,7 +60,8 @@ type DNSAnswer struct {
 	WantIP       string
 	Answer       string
 	ResponseTime string
-	Error        error
+	Error        string
+	IsMatch      bool
 }
 
 type DNSResults struct {
@@ -82,36 +97,57 @@ func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
 		return nil, errors.New("Invalid lookup type")
 	}
 
+	pool := NewPool(conf.Concurrency)
+
 	for i := 0; i < len(hosts); i++ {
-		answer, rtt, err := Lookup(server, hosts[i].Name, lookupType)
+		pool.Slot()
 
-		if err != nil {
-			out.Records = append(out.Records, &DNSAnswer{Error: err})
-			continue
-		}
+		go func(host *Host) {
+			defer pool.Free()
 
-		out.Records = append(out.Records, &DNSAnswer{
-			Query:        hosts[i].Name,
-			WantIP:       hosts[i].WantIP,
-			Answer:       answer,
-			ResponseTime: rtt,
-		})
+			ans := &DNSAnswer{
+				Query:  host.Name,
+				WantIP: host.WantIP,
+			}
+
+			answers, rtt, err := Lookup(server, host.Name, lookupType)
+			if err != nil {
+				ans.Error = err.Error()
+				out.Records = append(out.Records, ans)
+				return
+			}
+
+			for a := 0; a < len(answers); a++ {
+				if answers[a] == ans.WantIP {
+					ans.IsMatch = true
+					break
+				}
+			}
+
+			ans.Answer = strings.Join(answers, ", ")
+			ans.ResponseTime = rtt
+
+			out.Records = append(out.Records, ans)
+		}(hosts[i])
 	}
+
+	pool.Wait()
 
 	return out, nil
 }
 
-func Lookup(server, target string, rtype uint16) (string, string, error) {
-	c := dns.Client{}
+func Lookup(server, target string, rtype uint16) ([]string, string, error) {
+	c := dns.Client{DialTimeout: 1500 * time.Millisecond}
 	m := dns.Msg{}
 	m.SetQuestion(target+".", rtype)
+	m.RecursionDesired = true
 	result, t, err := c.Exchange(&m, server+":53")
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	if len(result.Answer) == 0 {
-		return "", "", errors.New("no results found")
+		return nil, "", errors.New("no results found")
 	}
 
 	out := []string{}
@@ -120,7 +156,7 @@ func Lookup(server, target string, rtype uint16) (string, string, error) {
 		out = append(out, shortRR(result.Answer[i]))
 	}
 
-	return strings.Join(out, ", "), t.String(), nil
+	return out, t.String(), nil
 }
 
 // var recordTypes = [...]string{"A", "AAAA", "CNAME", "MX", "NS", "TXT"}

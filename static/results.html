@@ -3,10 +3,10 @@
 
 {{ render "partials/messages.html" }}
 
-This is a test.
-
-{{ .Results }}
-
+<ul class="list-group">
 {{ range .Results.Records }}
-<li>{{ printf "%#v\n" . }}</li>
+    <li class="list-group-item list-group-item-{{ if .Error }}danger{{ else }}{{ if eq .WantIP .Answer }}success{{ else }}warning{{ end }}{{ end }}">
+        {{ printf "%#v\n" . }}
+    </li>
 {{ end }}
+</ul>
