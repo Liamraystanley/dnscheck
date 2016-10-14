@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/kataras/go-template/html"
@@ -94,12 +93,7 @@ func initWebserver() error {
 	iris.Config.Gzip = true
 	iris.Config.IsDevelopment = conf.Debug
 	iris.StaticWeb("/static", "./static", 1)
-	iris.UseTemplate(html.New(html.Config{
-		Layout: "base.html",
-		Funcs: map[string]interface{}{
-			"contains": strings.Contains,
-		},
-	})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
+	iris.UseTemplate(html.New(html.Config{Layout: "base.html"})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
 	iris.UseFunc(webLogRequest)
 
 	// 500

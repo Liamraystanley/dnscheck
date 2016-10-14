@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	sempool "github.com/Liamraystanley/go-sempool"
 	"github.com/miekg/dns"
 )
 
@@ -97,7 +98,7 @@ func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
 		return nil, errors.New("Invalid lookup type")
 	}
 
-	pool := NewPool(conf.Concurrency)
+	pool := sempool.New(conf.Concurrency)
 
 	for i := 0; i < len(hosts); i++ {
 		pool.Slot()
