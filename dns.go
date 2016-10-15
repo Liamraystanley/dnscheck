@@ -1,4 +1,4 @@
-package main
+ackage main
 
 import (
 	"errors"
@@ -184,7 +184,7 @@ func Lookup(servers []string, target string, rtype uint16, maxAllowed int) ([]st
 	var t time.Duration
 	var err error
 
-	if tries := 0; tries < maxAllowed; tries++ {
+	for tries := 0; tries < maxAllowed; tries++ {
 		result, t, err = c.Exchange(&m, servers[rand.Intn(len(servers))]+":53")
 		if err == nil {
 			break

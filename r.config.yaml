@@ -1,0 +1,16 @@
+projects:
+- app_name: dnscheck
+  app_path: /
+  app_run: true
+  app_bin: true
+  app_fmt: true
+  app_watcher:
+    paths:
+    - /
+    ignore_paths:
+    - vendor
+    exts:
+    - .go
+    output:
+      cli: true
+      file: false
