@@ -2,11 +2,20 @@
 <hr>
 
 {{ render "partials/messages.html" }}
-
-<ul class="list-group">
-{{ range .Results.Records }}
-    <li class="list-group-item list-group-item-{{ if .Error }}danger{{ else }}{{ if eq .WantIP .Answer }}success{{ else }}warning{{ end }}{{ end }}">
-        {{ printf "%#v\n" . }}
-    </li>
-{{ end }}
-</ul>
+<div class="row">
+    <div class="col-md-8">
+        <ul class="list-group">
+        {{ range .Results.Records }}
+            <li class="list-group-item list-group-item-{{ if .Error }}danger{{ else }}{{ if .IsMatch }}success{{ else }}warning{{ end }}{{ end }}">
+                {{ printf "%#v\n" . }}
+                <!--{{ if .WantIP }}<span class="label label-info">want: {{ .WantIP }} (Liquid Web)</span>{{ end }}-->
+                <!--<span class="label label-success">SERVER: 8.8.8.8 (Google)</span>-->
+                <div class="dns-query" style="display: inline-block; min-width: 200px; margin-left: 30px;"><span class="badge">{{ .Query }}</span></div>
+                <div style="display: inline-block; min-width: 25px;"><i class="fa fa-chevron-circle-right"></i></div>
+                <span class="dns-answer">{{ if .Answer }}{{ .Answer }}{{ else }}<span class="label label-danger">No results found</span>{{ end }}</span>
+            </li>
+        {{ end }}
+        </ul>
+    </div>
+    <div class="col-md-4"></div>
+</div>

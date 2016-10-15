@@ -18,13 +18,13 @@ import (
 
 // Config represents the configuration for the app
 type Config struct {
-	Debug       bool   `arg:"-d,help:enable debugging mode"`
-	Host        string `arg:"-h,help:host/ip for which to bind to"`
-	Port        int    `arg:"-p,help:port which to bind to"`
-	Database    string `arg:"help:file path to the database for dnscheck"`
-	Resolver    string `arg:"-r,help:resolver to use to resolve query lookups"`
-	Concurrency int    `arg:"-c,help:number of records to use for resolving records"`
-	Limit       int    `arg:"-l,help:max queries per request"`
+	Debug       bool     `arg:"-d,help:enable debugging mode"`
+	Host        string   `arg:"-h,help:host/ip for which to bind to"`
+	Port        int      `arg:"-p,help:port which to bind to"`
+	Database    string   `arg:"help:file path to the database for dnscheck"`
+	Resolvers   []string `arg:"-r,help:resolver to use to resolve query lookups"`
+	Concurrency int      `arg:"-c,help:number of records to use for resolving records"`
+	Limit       int      `arg:"-l,help:max queries per request"`
 }
 
 // setup some defaults
@@ -33,7 +33,7 @@ var conf = Config{
 	Host:        "localhost",
 	Port:        3000,
 	Database:    "dns.db",
-	Resolver:    "127.0.0.1",
+	Resolvers:   []string{"8.8.8.8", "8.8.4.4", "208.67.222.222", "208.67.220.220"},
 	Concurrency: 10,
 }
 
@@ -119,7 +119,7 @@ func initWebserver() error {
 			return
 		}
 
-		results, err := LookupAll(hosts, conf.Resolver, lookupType)
+		results, err := LookupAll(hosts, conf.Resolvers, lookupType)
 		if err != nil {
 			ctx.SetFlash("originalHosts", input)
 			ctx.SetFlash("error", err.Error())

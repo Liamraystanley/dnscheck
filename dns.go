@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"math/rand"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -22,6 +24,52 @@ var reNewlines = regexp.MustCompile(`[\n\r]+`)
 type Host struct {
 	Name   string
 	WantIP string
+}
+
+type DNSAnswer struct {
+	Query        string
+	WantIP       string
+	Answer       string
+	ResponseTime string
+	Error        string
+	IsMatch      bool
+}
+
+type DNSResults struct {
+	Request  Request
+	Records  Answer
+	RType    string
+	ScanTime string
+}
+
+type Request []*Host
+type Answer []*DNSAnswer
+
+func (ans Answer) Len() int {
+	return len(ans)
+}
+
+func (ans Answer) Less(i, j int) bool {
+	// if one is erronous, and one is not
+	if ans[i].Error != "" && ans[j].Error == "" {
+		return true
+	} else if ans[i].Error == "" && ans[j].Error != "" {
+		return false
+	}
+
+	if ans[i].IsMatch == ans[j].IsMatch {
+		return ans[i].Query < ans[j].Query
+	}
+
+	if ans[i].IsMatch {
+		return false
+	}
+
+	return true
+}
+
+func (ans Answer) Swap(i, j int) {
+	ans[i], ans[j] = ans[j], ans[i]
 }
 
 func parseHosts(hosts string) (out []*Host, err error) {
@@ -56,23 +104,7 @@ func parseHosts(hosts string) (out []*Host, err error) {
 	return out, nil
 }
 
-type DNSAnswer struct {
-	Query        string
-	WantIP       string
-	Answer       string
-	ResponseTime string
-	Error        string
-	IsMatch      bool
-}
-
-type DNSResults struct {
-	Request  []*Host
-	Records  []*DNSAnswer
-	RType    string
-	ScanTime string
-}
-
-func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
+func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, error) {
 	out := &DNSResults{}
 	out.ScanTime = time.Now().Format(time.RFC3339)
 	out.Request = hosts
@@ -111,7 +143,7 @@ func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
 				WantIP: host.WantIP,
 			}
 
-			answers, rtt, err := Lookup(server, host.Name, lookupType)
+			answers, rtt, err := Lookup(servers, host.Name, lookupType, 3)
 			if err != nil {
 				ans.Error = err.Error()
 				out.Records = append(out.Records, ans)
@@ -119,7 +151,7 @@ func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
 			}
 
 			for a := 0; a < len(answers); a++ {
-				if answers[a] == ans.WantIP {
+				if answers[a] == ans.WantIP || len(ans.WantIP) == 0 {
 					ans.IsMatch = true
 					break
 				}
@@ -134,17 +166,40 @@ func LookupAll(hosts []*Host, server, rtype string) (*DNSResults, error) {
 
 	pool.Wait()
 
+	sort.Sort(out.Records)
+
 	return out, nil
 }
 
-func Lookup(server, target string, rtype uint16) ([]string, string, error) {
-	c := dns.Client{DialTimeout: 1500 * time.Millisecond}
+func Lookup(servers []string, target string, rtype uint16, maxAllowed int) ([]string, string, error) {
+	c := dns.Client{
+		Timeout: 1000 * time.Millisecond,
+	}
 	m := dns.Msg{}
 	m.SetQuestion(target+".", rtype)
 	m.RecursionDesired = true
-	result, t, err := c.Exchange(&m, server+":53")
+	c.SingleInflight = true
+
+	var result *dns.MSg
+	var t time.Duration
+	var err error
+
+	if tries := 0; tries < maxAllowed; tries++ {
+		result, t, err = c.Exchange(&m, servers[rand.Intn(len(servers))]+":53")
+		if err == nil {
+			break
+		}
+		if err != nil {
+			if strings.HasSuffix(err.Error(), "i/o timeout") {
+				continue
+			}
+		}
+	}
 	if err != nil {
 		return nil, "", err
+	}
+	if result == nil {
+		return nil, "", errors.New("unable to obtain a response")
 	}
 
 	if len(result.Answer) == 0 {
