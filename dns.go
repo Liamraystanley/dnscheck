@@ -180,7 +180,7 @@ func Lookup(servers []string, target string, rtype uint16, maxAllowed int) ([]st
 	m.RecursionDesired = true
 	c.SingleInflight = true
 
-	var result *dns.MSg
+	var result *dns.Msg
 	var t time.Duration
 	var err error
 
