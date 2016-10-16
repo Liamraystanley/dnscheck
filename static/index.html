@@ -1,7 +1,5 @@
 <h2>Mass DNS Check Utility</h2>
-<hr>
-
-{{ render "partials/messages.html" }}
+<hr> {{ render "partials/messages.html" }}
 
 <form class="form-horizontal" method="POST" action="/">
     <div class="row">
@@ -11,10 +9,16 @@
         </div>
 
         <div class="col-sm-12 col-md-4">
-            <label for="server">DNS Server to utilize</label>
-            <select id="server" name="server" class="form-control" style="margin-bottom: 15px;">
-                <option value="8.8.8.8" selected>Google DNS</option>
+            <label for="resolvers">DNS Server to utilize</label>
+            {{ if index .Conf.Resolvers "Custom" }}
+                <input type="hidden" value="Custom" name="resolvers">
+            {{ else }}
+            <select id="resolvers" name="resolvers" class="form-control" style="margin-bottom: 15px;">
+                {{ range $key, $value := .Conf.Resolvers }}
+                    <option value="{{ $key }}" {{ if eq $key "Local Resolvers" }}selected{{ end}}>{{ $key }}{{ if eq $key "Local Resolvers" }} [default]{{ end}}</option>
+                {{ end }}
             </select>
+            {{ end }}
             <label for="recordtype">Record Lookup Type</label>
             <select id="recordtype" name="recordtype" class="form-control">
                 <option value="A" selected>A</option>

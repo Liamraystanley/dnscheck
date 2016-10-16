@@ -105,6 +105,14 @@ func parseHosts(hosts string) (out []*Host, err error) {
 }
 
 func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, error) {
+	if len(hosts) > conf.Limit {
+		return nil, errors.New("Too many queries to process.")
+	}
+
+	if len(servers) == 0 {
+		return nil, errors.New("No resolvers configured")
+	}
+
 	out := &DNSResults{}
 	out.ScanTime = time.Now().Format(time.RFC3339)
 	out.Request = hosts

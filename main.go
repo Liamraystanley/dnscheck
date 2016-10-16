@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	arg "github.com/alexflint/go-arg"
 	"github.com/kataras/go-template/html"
@@ -18,23 +21,26 @@ import (
 
 // Config represents the configuration for the app
 type Config struct {
-	Debug       bool     `arg:"-d,help:enable debugging mode"`
-	Host        string   `arg:"-h,help:host/ip for which to bind to"`
-	Port        int      `arg:"-p,help:port which to bind to"`
-	Database    string   `arg:"help:file path to the database for dnscheck"`
-	Resolvers   []string `arg:"-r,help:resolver to use to resolve query lookups"`
-	Concurrency int      `arg:"-c,help:number of records to use for resolving records"`
-	Limit       int      `arg:"-l,help:max queries per request"`
+	Debug           bool                `arg:"-d,help:enable debugging mode"`
+	Host            string              `arg:"-h,help:host/ip for which to bind to"`
+	Port            int                 `arg:"-p,help:port which to bind to"`
+	Database        string              `arg:"help:file path to the database for dnscheck"`
+	CustomResolvers []string            `arg:"-r,help:resolver to use to resolve query lookups"`
+	Resolvers       map[string][]string `arg:"-"` // underlying resolver map, created during startup
+	Concurrency     int                 `arg:"-c,help:number of records to use for resolving records"`
+	Limit           int                 `arg:"-l,help:max queries per request"`
 }
 
 // setup some defaults
 var conf = Config{
-	Debug:       false,
-	Host:        "localhost",
-	Port:        3000,
-	Database:    "dns.db",
-	Resolvers:   []string{"8.8.8.8", "8.8.4.4", "208.67.222.222", "208.67.220.220"},
-	Concurrency: 10,
+	Debug:           false,
+	Host:            "localhost",
+	Port:            3000,
+	Database:        "dns.db",
+	CustomResolvers: []string{},
+	Resolvers:       make(map[string][]string),
+	Concurrency:     10,
+	Limit:           500,
 }
 
 var logger *log.Logger
@@ -57,6 +63,7 @@ func handleNotFound(ctx *iris.Context) {
 func getWebContext(c *iris.Context) map[string]interface{} {
 	return iris.Map{
 		"Messages": c.GetFlashes(),
+		"Conf":     conf,
 	}
 }
 
@@ -84,6 +91,45 @@ func getLookup(id string) (*DNSResults, error) {
 	return results, db.GetStruct("records", id, results)
 }
 
+func genResolvers() error {
+	if len(conf.CustomResolvers) == 0 {
+		// assume defaults. Google DNS, OpenDNS, and local resolvers.
+		file, err := ioutil.ReadFile("/etc/resolv.conf")
+		if err != nil {
+			return err
+		}
+
+		resolv := fmt.Sprintf("%s", file)
+		ips := []string{}
+
+		for _, line := range strings.Split(resolv, "\n") {
+			var ip string
+			_, err := fmt.Sscanf(line, "nameserver %s", &ip)
+			if err != nil || ip == "" {
+				continue
+			}
+
+			ips = append(ips, ip)
+		}
+
+		if len(ips) == 0 {
+			return errors.New("unable to read /etc/resolv.conf")
+		}
+
+		conf.Resolvers["Local Resolvers"] = ips
+
+		// TODO: Add Google and OpenDNS here
+		conf.Resolvers["Google DNS"] = []string{"8.8.8.8", "8.8.4.4"}
+		conf.Resolvers["OpenDNS"] = []string{"208.67.222.222", "208.67.220.220"}
+
+		return nil
+	}
+
+	conf.Resolvers["Custom"] = conf.CustomResolvers
+
+	return nil
+}
+
 func initWebserver() error {
 	logger.Println("initializing webserver")
 
@@ -109,6 +155,15 @@ func initWebserver() error {
 	iris.Post("/", func(ctx *iris.Context) {
 		input := ctx.FormValueString("hosts")
 		lookupType := ctx.FormValueString("recordtype")
+		resolvers := ctx.FormValueString("resolvers")
+
+		if _, ok := conf.Resolvers[resolvers]; !ok {
+			ctx.SetFlash("error", "Resolvers specified do not exist")
+			ctx.SetFlash("originalHosts", input)
+
+			ctx.MustRender("index.html", getWebContext(ctx))
+			return
+		}
 
 		hosts, err := parseHosts(input)
 		if err != nil {
@@ -119,7 +174,7 @@ func initWebserver() error {
 			return
 		}
 
-		results, err := LookupAll(hosts, conf.Resolvers, lookupType)
+		results, err := LookupAll(hosts, conf.Resolvers[resolvers], lookupType)
 		if err != nil {
 			ctx.SetFlash("originalHosts", input)
 			ctx.SetFlash("error", err.Error())
@@ -174,6 +229,11 @@ func main() {
 
 	// initialize the database
 	initDatabase()
+
+	// initialize the resolvers
+	if err := genResolvers(); err != nil {
+		logger.Fatal(err)
+	}
 
 	// initialize webserver
 	if err := initWebserver(); err != nil {
