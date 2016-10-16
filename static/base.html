@@ -1,29 +1,60 @@
 {{ render "partials/head.html" }}
 <div id="wrapper">
-    <nav class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          <a class="navbar-brand" href="/">DNS Checker</a>
+    <nav class="navbar navbar-default navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="/"><i class="fa fa-heartbeat" style="color: #d34615;"></i> DNS Checker</a>
+            </div>
+            <div id="navbar" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li class="active"><a href="/">Home</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </div>
         </div>
-        <div id="navbar" class="collapse navbar-collapse">
-          <ul class="nav navbar-nav">
-            <li class="active"><a href="/">Home</a></li>
-            <li><a href="#about">About</a></li>
-            <li><a href="#contact">Contact</a></li>
-          </ul>
-        </div><!--/.nav-collapse -->
-      </div>
     </nav>
 
-    <div id="page-wrapper">
+    <div id="content-wrapper">
         <div class="container">{{ yield }}</div>
-        <center><span class="label label-primary">&copy; Liam Stanley 2016</span></center>
     </div>
+
+    <footer class="page-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-12 col-md-6">
+                    <h3>About DNS Checker</h3>
+                    <p>
+                        DNS Checker was built to simplify the process of checking many DNS records,
+                        and comparing them against what the expected records should look like. If
+                        you feel as though other checks should be added to this site, feel free to
+                        request those
+                        <a href="https://github.com/Liamraystanley/dnscheck/issues/new" target="_blank">here</a>.
+                    </p>
+                </div>
+                
+                <div class="col-sm-12 col-md-3"></div>
+                <div class="col-sm-12 col-md-3">
+                    <h3>Other Useful Utilities</h3>
+                    <ul>
+                        <li><a href="http://mxtoolbox.com/">MX Toolbox utility</a></li>
+                        <li><a href="http://public-dns.info/">Large Public DNS Server List</a></li>
+                        <li><a href="https://intodns.com/">IntoDNS: DNS Health Check</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="footer-copyright">
+            <div class="container">
+                Made by <a href="https://liamstanley.io/">Liam Stanley</a> &middot; <a href="https://github.com/Liamraystanley/dnscheck">Run DNS Checker yourself</a>
+            </div>
+        </div>
+    </footer>
 </div>
 {{ render "partials/foot.html" }}

@@ -5,7 +5,7 @@
     <div class="row">
         <div class="col-sm-12 col-md-8">
             <label for="hosts">Hostnames to lookup</label>
-            <textarea name="hosts" id="hosts" class="form-control" rows="7" placeholder="List of domains or '<ip> <host> <host>...' pairs">{{ if index .Messages "originalHosts" }}{{ .Messages.originalHosts }}{{ end }}</textarea>
+            <textarea name="hosts" id="hosts" class="form-control" rows="18" placeholder="List of domains or '<ip> <host> <host>...' pairs">{{ if index .Messages "originalHosts" }}{{ .Messages.originalHosts }}{{ end }}</textarea>
         </div>
 
         <div class="col-sm-12 col-md-4">
