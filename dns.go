@@ -32,6 +32,7 @@ type DNSAnswer struct {
 	Answer       string
 	ResponseTime string
 	Error        string
+	RType        string
 	IsMatch      bool
 }
 
@@ -75,6 +76,8 @@ func (ans Answer) Swap(i, j int) {
 func parseHosts(hosts string) (out []*Host, err error) {
 	input := strings.Split(reNewlines.ReplaceAllString(reSpaces.ReplaceAllString(hosts, ""), "\n"), "\n")
 
+	var knownHosts []string
+
 	for i := 0; i < len(input); i++ {
 		line := reRawDomain.FindStringSubmatch(reSpaces.ReplaceAllString(input[i], ""))
 		if len(line) != 3 {
@@ -96,6 +99,21 @@ func parseHosts(hosts string) (out []*Host, err error) {
 			if host == "" {
 				return nil, errors.New("erronous input")
 			}
+
+			// verify it's not already within the list
+			var alreadyExists bool
+			for k := 0; k < len(knownHosts); k++ {
+				if knownHosts[k] == host {
+					alreadyExists = true
+					break
+				}
+			}
+			if alreadyExists {
+				continue // skip it
+			}
+
+			// track this host to prevent duplicate checks
+			knownHosts = append(knownHosts, host)
 
 			out = append(out, &Host{Name: host, WantIP: ip})
 		}
@@ -149,6 +167,7 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 			ans := &DNSAnswer{
 				Query:  host.Name,
 				WantIP: host.WantIP,
+				RType:  rtype,
 			}
 
 			answers, rtt, err := Lookup(servers, host.Name, lookupType, 3)
@@ -159,7 +178,7 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 			}
 
 			for a := 0; a < len(answers); a++ {
-				if answers[a] == ans.WantIP || len(ans.WantIP) == 0 {
+				if answers[a] == ans.WantIP || len(ans.WantIP) == 0 || lookupType != dns.TypeA {
 					ans.IsMatch = true
 					break
 				}

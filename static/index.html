@@ -5,7 +5,7 @@
     <div class="row">
         <div class="col-sm-12 col-md-8">
             <label for="hosts">Hostnames to lookup</label>
-            <textarea name="hosts" id="hosts" class="form-control" rows="18" placeholder="List of domains or '<ip> <host> <host>...' pairs">{{ if index .Messages "originalHosts" }}{{ .Messages.originalHosts }}{{ end }}</textarea>
+            <textarea name="hosts" id="hosts" class="form-control" rows="18" placeholder="List of domains or '<ip> <host> <host>...' pairs" autofocus>{{ if index .Messages "originalHosts" }}{{ .Messages.originalHosts }}{{ end }}</textarea>
         </div>
 
         <div class="col-sm-12 col-md-4">
@@ -22,6 +22,11 @@
             <label for="recordtype">Record Lookup Type</label>
             <select id="recordtype" name="recordtype" class="form-control">
                 <option value="A" selected>A</option>
+                <option value="AAAA">AAAA</option>
+                <option value="CNAME">CNAME</option>
+                <option value="MX">MX</option>
+                <option value="NS">NS</option>
+                <option value="TXT">TXT</option>
             </select>
         </div>
 

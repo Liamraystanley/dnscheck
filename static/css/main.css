@@ -35,3 +35,17 @@ footer.page-footer .footer-copyright {
     color: rgba(255,255,255,0.8);
     background-color: rgba(51,51,51,0.15);
 }
+
+.results .dns-query {
+    display: inline-block;
+    min-width: 180px;
+}
+
+.results i {
+    padding-right: 3px;
+    padding-left: 3px;
+}
+
+.results a > i { color: #383838; }
+
+.dark { color: #383838; }

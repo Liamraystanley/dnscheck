@@ -4,15 +4,18 @@
 {{ render "partials/messages.html" }}
 <div class="row">
     <div class="col-md-8">
-        <ul class="list-group">
+        <ul class="list-group results">
         {{ range .Results.Records }}
             <li class="list-group-item list-group-item-{{ if .Error }}danger{{ else }}{{ if .IsMatch }}success{{ else }}warning{{ end }}{{ end }}">
-                {{ printf "%#v\n" . }}
-                <!--{{ if .WantIP }}<span class="label label-info">want: {{ .WantIP }} (Liquid Web)</span>{{ end }}-->
-                <!--<span class="label label-success">SERVER: 8.8.8.8 (Google)</span>-->
-                <div class="dns-query" style="display: inline-block; min-width: 200px; margin-left: 30px;"><span class="badge">{{ .Query }}</span></div>
-                <div style="display: inline-block; min-width: 25px;"><i class="fa fa-chevron-circle-right"></i></div>
-                <span class="dns-answer">{{ if .Answer }}{{ .Answer }}{{ else }}<span class="label label-danger">No results found</span>{{ end }}</span>
+                <div class="dns-query">{{ .Query }}</div>
+                <span><i class="fa fa-chevron-circle-right"></i></span>
+                <span class="dns-answer">{{ if .Answer }}{{ .Answer }}{{ else }}<span class="label label-warning">No results found</span>{{ end }}</span>
+                <a href="#" class="pull-right" title="Lookup type: {{ .RType }} RECORD"><i class="fa fa-heartbeat"></i></a>
+                {{ if not .Error }}
+                    {{ if not .IsMatch }}
+                        <a href="#" class="pull-right" title="{{ .Answer }} does not match {{ .WantIP }}"><i class="fa fa-question-circle"></i></a>
+                    {{ end }}
+                {{ end }}
             </li>
         {{ end }}
         </ul>
