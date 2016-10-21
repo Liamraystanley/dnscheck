@@ -2,12 +2,13 @@ package main
 
 import (
 	"errors"
-	"math/rand"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
 	"time"
 
+	ldns "github.com/Liamraystanley/go-ldns"
 	sempool "github.com/Liamraystanley/go-sempool"
 	"github.com/miekg/dns"
 )
@@ -22,13 +23,15 @@ var reNewlines = regexp.MustCompile(`[\n\r]+`)
 
 // Host represents an item to look up
 type Host struct {
-	Name   string
-	WantIP string
+	Name string
+	Want string
 }
 
 type DNSAnswer struct {
 	Query        string
-	WantIP       string
+	Want         string
+	Raw          []string
+	Answers      []string
 	Answer       string
 	ResponseTime string
 	Error        string
@@ -115,11 +118,17 @@ func parseHosts(hosts string) (out []*Host, err error) {
 			// track this host to prevent duplicate checks
 			knownHosts = append(knownHosts, host)
 
-			out = append(out, &Host{Name: host, WantIP: ip})
+			out = append(out, &Host{Name: host, Want: ip})
 		}
 	}
 
 	return out, nil
+}
+
+func fmtTime(t time.Duration) string {
+	ms := float32(t.Nanoseconds()) / 1000000.0
+
+	return fmt.Sprintf("%.2fms", ms)
 }
 
 func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, error) {
@@ -157,6 +166,10 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 	}
 
 	pool := sempool.New(conf.Concurrency)
+	r, err := ldns.New(servers)
+	if err != nil {
+		return nil, err
+	}
 
 	for i := 0; i < len(hosts); i++ {
 		pool.Slot()
@@ -164,28 +177,36 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 		go func(host *Host) {
 			defer pool.Free()
 
-			ans := &DNSAnswer{
-				Query:  host.Name,
-				WantIP: host.WantIP,
-				RType:  rtype,
-			}
-
-			answers, rtt, err := Lookup(servers, host.Name, lookupType, 3)
+			result, err := r.Lookup(host.Name, lookupType)
 			if err != nil {
-				ans.Error = err.Error()
-				out.Records = append(out.Records, ans)
+				out.Records = append(out.Records, &DNSAnswer{
+					Query: host.Name,
+					Want:  host.Want,
+					RType: rtype,
+					Error: err.Error(),
+				})
 				return
 			}
 
-			for a := 0; a < len(answers); a++ {
-				if answers[a] == ans.WantIP || len(ans.WantIP) == 0 || lookupType != dns.TypeA {
+			ans := &DNSAnswer{
+				Query:        result.Host,
+				Want:         host.Want,
+				RType:        result.QueryType(),
+				Answer:       result.String(),
+				ResponseTime: fmtTime(result.RTT),
+			}
+
+			for a := 0; a < len(result.Records); a++ {
+				ans.Answers = append(ans.Answers, result.Records[a].String())
+
+				if !ans.IsMatch && (result.Records[a].String() == ans.Want || len(ans.Want) == 0 || lookupType != dns.TypeA) {
+					// currently, only A records are comparable. in the future, this should support anything,
+					// though it would require the user entering this to compare.
 					ans.IsMatch = true
-					break
 				}
 			}
 
-			ans.Answer = strings.Join(answers, ", ")
-			ans.ResponseTime = rtt
+			ans.Answer = result.String()
 
 			out.Records = append(out.Records, ans)
 		}(hosts[i])
@@ -196,67 +217,4 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 	sort.Sort(out.Records)
 
 	return out, nil
-}
-
-func Lookup(servers []string, target string, rtype uint16, maxAllowed int) ([]string, string, error) {
-	c := dns.Client{
-		Timeout: 1000 * time.Millisecond,
-	}
-	m := dns.Msg{}
-	m.SetQuestion(target+".", rtype)
-	m.RecursionDesired = true
-	c.SingleInflight = true
-
-	var result *dns.Msg
-	var t time.Duration
-	var err error
-
-	for tries := 0; tries < maxAllowed; tries++ {
-		result, t, err = c.Exchange(&m, servers[rand.Intn(len(servers))]+":53")
-		if err == nil {
-			break
-		}
-		if err != nil {
-			if strings.HasSuffix(err.Error(), "i/o timeout") {
-				continue
-			}
-		}
-	}
-	if err != nil {
-		return nil, "", err
-	}
-	if result == nil {
-		return nil, "", errors.New("unable to obtain a response")
-	}
-
-	if len(result.Answer) == 0 {
-		return nil, "", errors.New("no results found")
-	}
-
-	out := []string{}
-
-	for i := 0; i < len(result.Answer); i++ {
-		out = append(out, shortRR(result.Answer[i]))
-	}
-
-	return out, t.String(), nil
-}
-
-// var recordTypes = [...]string{"A", "AAAA", "CNAME", "MX", "NS", "TXT"}
-func shortRR(r dns.RR) string {
-	switch t := r.(type) {
-	case *dns.A:
-		return t.A.String()
-	case *dns.AAAA:
-		return t.AAAA.String()
-	case *dns.CNAME:
-		return strings.TrimSuffix(t.Target, ".")
-	case *dns.MX:
-		return strings.TrimSuffix(t.Mx, ".")
-	case *dns.NS:
-		return strings.TrimSuffix(t.Ns, ".")
-	case *dns.TXT:
-		return "\"" + strings.Join(t.Txt, " ") + "\""
-	}
-	return "unknown response"
 }

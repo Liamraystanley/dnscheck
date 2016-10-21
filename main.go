@@ -1,15 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
-	"strings"
 
+	ldns "github.com/Liamraystanley/go-ldns"
 	arg "github.com/alexflint/go-arg"
 	"github.com/kataras/go-template/html"
 	"github.com/kataras/iris"
@@ -94,31 +92,12 @@ func getLookup(id string) (*DNSResults, error) {
 func genResolvers() error {
 	if len(conf.CustomResolvers) == 0 {
 		// assume defaults. Google DNS, OpenDNS, and local resolvers.
-		file, err := ioutil.ReadFile("/etc/resolv.conf")
+		localResolvers, err := ldns.ReadResolveConf()
 		if err != nil {
 			return err
 		}
 
-		resolv := fmt.Sprintf("%s", file)
-		ips := []string{}
-
-		for _, line := range strings.Split(resolv, "\n") {
-			var ip string
-			_, err := fmt.Sscanf(line, "nameserver %s", &ip)
-			if err != nil || ip == "" {
-				continue
-			}
-
-			ips = append(ips, ip)
-		}
-
-		if len(ips) == 0 {
-			return errors.New("unable to read /etc/resolv.conf")
-		}
-
-		conf.Resolvers["Local Resolvers"] = ips
-
-		// TODO: Add Google and OpenDNS here
+		conf.Resolvers["Local Resolvers"] = localResolvers
 		conf.Resolvers["Google DNS"] = []string{"8.8.8.8", "8.8.4.4"}
 		conf.Resolvers["OpenDNS"] = []string{"208.67.222.222", "208.67.220.220"}
 
