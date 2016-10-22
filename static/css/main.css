@@ -41,6 +41,11 @@ footer.page-footer .footer-copyright {
     min-width: 180px;
 }
 
+.results .dns-icons {
+    display: inline-block;
+    min-width: 45px;
+}
+
 .results i {
     padding-right: 3px;
     padding-left: 3px;
