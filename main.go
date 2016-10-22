@@ -23,6 +23,7 @@ type Config struct {
 	Host            string              `arg:"-h,help:host/ip for which to bind to"`
 	Port            int                 `arg:"-p,help:port which to bind to"`
 	Database        string              `arg:"help:file path to the database for dnscheck"`
+	GeoDb           string              `arg:"help:GeoIP database location"`
 	CustomResolvers []string            `arg:"-r,help:resolver to use to resolve query lookups"`
 	Resolvers       map[string][]string `arg:"-"` // underlying resolver map, created during startup
 	Concurrency     int                 `arg:"-c,help:number of records to use for resolving records"`
@@ -35,6 +36,7 @@ var conf = Config{
 	Host:            "localhost",
 	Port:            3000,
 	Database:        "dns.db",
+	GeoDb:           "geoip.db",
 	CustomResolvers: []string{},
 	Resolvers:       make(map[string][]string),
 	Concurrency:     10,
@@ -190,6 +192,42 @@ func initWebserver() error {
 		ctx.MustRender("results.html", out)
 	})("results")
 
+	iris.Get("/api/:key", func(ctx *iris.Context) {
+		id := ctx.Param("key")
+
+		result, err := getLookup(id)
+		if err != nil {
+			fmt.Println(err)
+
+			ctx.JSON(iris.StatusNotFound, map[string]string{"error": "an entry with that key does not exist"})
+			return
+		}
+
+		ctx.JSON(iris.StatusOK, result)
+	})("api-results")
+
+	iris.Get("/stats/:key", func(ctx *iris.Context) {
+		id := ctx.Param("key")
+
+		result, err := getLookup(id)
+		if err != nil {
+			fmt.Println(err)
+
+			ctx.JSON(iris.StatusNotFound, map[string]string{"error": "an entry with that key does not exist"})
+			return
+		}
+
+		stats, err := result.Stats()
+		if err != nil {
+			fmt.Println(err)
+
+			ctx.JSON(iris.StatusInternalServerError, map[string]string{"error": "an unknown error occurred"})
+			return
+		}
+
+		ctx.JSON(iris.StatusOK, stats)
+	})
+
 	listener, err := net.Listen("tcp", conf.Host+":"+strconv.Itoa(conf.Port))
 	if err != nil {
 		return err
@@ -213,6 +251,9 @@ func main() {
 	if err := genResolvers(); err != nil {
 		logger.Fatal(err)
 	}
+
+	// check for geoip updates (once a week is good 'nuff)
+	GeoIPUpdateCheck(conf.GeoDb)
 
 	// initialize webserver
 	if err := initWebserver(); err != nil {
