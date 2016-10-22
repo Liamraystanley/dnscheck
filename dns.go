@@ -3,9 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	ldns "github.com/Liamraystanley/go-ldns"
@@ -56,6 +58,52 @@ type DNSStats struct {
 	AnsPercent AnsCountList
 }
 
+func (res *DNSResults) IPInfo() (map[string]*IPResult, error) {
+	out := make(map[string]*IPResult)
+
+	toLookup := make(map[string]struct{})
+
+	for i := 0; i < len(res.Records); i++ {
+		for a := 0; a < len(res.Records[i].Answers); a++ {
+			if _, exists := toLookup[res.Records[i].Answers[a]]; exists {
+				continue
+			}
+
+			// check if it's an IP first
+			if isip := net.ParseIP(res.Records[i].Answers[a]); isip == nil {
+				break
+			}
+
+			toLookup[res.Records[i].Answers[a]] = struct{}{}
+		}
+	}
+
+	var lock sync.Mutex
+	pool := sempool.New(4)
+
+	for ipAddr := range toLookup {
+		pool.Slot()
+
+		go func(ip string) {
+			defer pool.Free()
+
+			// assume it's an IP past this point
+			info, err := IPLookup(ip)
+			if err != nil {
+				return
+			}
+
+			lock.Lock()
+			out[ip] = info
+			lock.Unlock()
+		}(ipAddr)
+	}
+
+	pool.Wait()
+
+	return out, nil
+}
+
 type AnsCountAnswer struct {
 	Answer     string
 	Percentage float32
@@ -97,11 +145,13 @@ func (res *DNSResults) Stats() (stats DNSStats, err error) {
 		}
 
 		if len(res.Records[i].Error) == 0 {
-			if _, ok := answerMap[res.Records[i].String()]; !ok {
-				answerMap[res.Records[i].String()] = 0
-			}
+			for a := 0; a < len(res.Records[i].Answers); a++ {
+				if _, ok := answerMap[res.Records[i].Answers[a]]; !ok {
+					answerMap[res.Records[i].Answers[a]] = 0
+				}
 
-			answerMap[res.Records[i].String()]++
+				answerMap[res.Records[i].Answers[a]]++
+			}
 		}
 	}
 
@@ -162,6 +212,11 @@ func parseHosts(hosts string) (out []*Host, err error) {
 	var knownHosts []string
 
 	for i := 0; i < len(input); i++ {
+		// check if the domain has wildcard records within it, as we are unable to check those
+		if strings.Contains(input[i], "*.") {
+			continue
+		}
+
 		line := reRawDomain.FindStringSubmatch(reSpaces.ReplaceAllString(input[i], ""))
 		if len(line) != 3 {
 			return nil, errors.New("erronous input")
@@ -213,11 +268,11 @@ func fmtTime(t time.Duration) string {
 
 func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, error) {
 	if len(hosts) > conf.Limit {
-		return nil, errors.New("Too many queries to process.")
+		return nil, errors.New("too many queries to process")
 	}
 
 	if len(servers) == 0 {
-		return nil, errors.New("No resolvers configured")
+		return nil, errors.New("no resolvers configured")
 	}
 
 	out := &DNSResults{}
@@ -242,7 +297,7 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 	case "TXT":
 		lookupType = dns.TypeTXT
 	default:
-		return nil, errors.New("Invalid lookup type")
+		return nil, errors.New("invalid lookup type")
 	}
 
 	pool := sempool.New(conf.Concurrency)
@@ -279,8 +334,9 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 				ans.Answers = append(ans.Answers, result.Records[a].String())
 
 				if !ans.IsMatch && (result.Records[a].String() == ans.Want || len(ans.Want) == 0 || lookupType != dns.TypeA) {
-					// currently, only A records are comparable. in the future, this should support anything,
+					// TODO: currently, only A records are comparable. in the future, this should support anything,
 					// though it would require the user entering this to compare.
+					// TODO: this should be opt-out'able. meaning in the frontend, any returned record is successful.
 					ans.IsMatch = true
 				}
 			}
