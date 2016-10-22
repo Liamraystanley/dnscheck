@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	ldns "github.com/Liamraystanley/go-ldns"
 	arg "github.com/alexflint/go-arg"
@@ -114,13 +115,28 @@ func genResolvers() error {
 func initWebserver() error {
 	logger.Println("initializing webserver")
 
+	funcmap := make(map[string]interface{})
+	funcmap["isip"] = func(ip string) bool {
+		if isip := net.ParseIP(ip); isip == nil {
+			return false
+		}
+
+		return true
+	}
+	funcmap["tolower"] = func(input string) string {
+		return strings.ToLower(input)
+	}
+	funcmap["join"] = func(input []string) string {
+		return strings.Join(input, ", ")
+	}
+
 	iris.Config.Sessions.Cookie = "session"
 	iris.Config.LoggerOut = os.Stdout // ioutil.Discard
 	iris.Config.DisableBanner = true
 	iris.Config.Gzip = true
 	iris.Config.IsDevelopment = conf.Debug
 	iris.StaticWeb("/static", "./static", 1)
-	iris.UseTemplate(html.New(html.Config{Layout: "base.html"})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
+	iris.UseTemplate(html.New(html.Config{Layout: "base.html", Funcs: funcmap})).Directory("./static", ".html") //.Binary(Asset, AssetNames)
 	iris.UseFunc(webLogRequest)
 
 	// 500
