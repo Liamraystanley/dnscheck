@@ -2,14 +2,18 @@ package main
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	maxminddb "github.com/oschwald/maxminddb-golang"
 )
 
+// GeoIPUpdateCheck checks for updates to the local Maxmind geolocation database
 func GeoIPUpdateCheck(fn string) {
 	curSeconds := time.Now().UnixNano() / int64(time.Second)
 	stat, err := os.Stat(fn)
@@ -35,6 +39,7 @@ func GeoIPUpdateCheck(fn string) {
 	GeoIPDownload(fn)
 }
 
+// GeoIPDownload downloads the Maxmind geolocation database locally, and gunzips it
 func GeoIPDownload(fn string) {
 	logger.Println("fetching new geoip data")
 
@@ -62,7 +67,7 @@ func GeoIPDownload(fn string) {
 	if err != nil {
 		logger.Fatalf("unable to write geoip data to '%s.tmp':%s", fn, err)
 	}
-	logger.Println("successfully wrote data to '%s.tmp'", fn)
+	logger.Printf("successfully wrote data to '%s.tmp'", fn)
 
 	// now, decompress it
 
@@ -97,6 +102,7 @@ func GeoIPDownload(fn string) {
 	if err != nil {
 		logger.Fatalf("error while attempting to verify geoip data: %s", err)
 	}
+	defer db.Close()
 
 	if err := db.Verify(); err != nil {
 		logger.Fatalf("error while attempting to verify geoip data: %s", err)
@@ -105,4 +111,109 @@ func GeoIPDownload(fn string) {
 	logger.Println("verification complete. good to go!")
 }
 
-func GeoIPLookup(addr string) error { return nil }
+// IPSearch is the struct->tag search query to search throughthe Maxmind DB
+type IPSearch struct {
+	City struct {
+		Names map[string]string `maxminddb:"names"`
+	} `maxminddb:"city"`
+	Country struct {
+		Code  string            `maxminddb:"iso_code"`
+		Names map[string]string `maxminddb:"names"`
+	} `maxminddb:"country"`
+	Continent struct {
+		Code  string            `maxminddb:"code"`
+		Names map[string]string `maxminddb:"names"`
+	} `maxminddb:"continent"`
+	Location struct {
+		Lat      float64 `maxminddb:"latitude"`
+		Long     float64 `maxminddb:"longitude"`
+		TimeZone string  `maxminddb:"time_zone"`
+	} `maxminddb:"location"`
+	Postal struct {
+		Code string `maxminddb:"code"`
+	} `maxminddb:"postal"`
+	Subdivisions []struct {
+		Code  string            `maxminddb:"iso_code"`
+		Names map[string]string `maxminddb:"names"`
+	} `maxminddb:"subdivisions"`
+	Traits struct {
+		Proxy bool `maxminddb:"is_anonymous_proxy"`
+	} `maxminddb:"traits"`
+
+	// RegisteredCountry struct {
+	// 	Code  string            `maxminddb:"iso_code"`
+	// 	Names map[string]string `maxminddb:"names"`
+	// } `maxminddb:"registered_country"`
+	// RepresentedCountry struct {
+	// 	Code  string            `maxminddb:"iso_code"`
+	// 	Names map[string]string `maxminddb:"names"`
+	// 	Type  string            `maxminddb:"type"`
+	// } `maxminddb:"represented_country"`
+}
+
+// IPResult contains the geolocation and host information for an IP
+type IPResult struct {
+	City          string
+	Subdivision   string
+	Country       string
+	CountryCode   string
+	Continent     string
+	ContinentCode string
+	Lat           float64
+	Long          float64
+	Timezone      string
+	PostalCode    string
+	Proxy         bool
+	Hosts         []string
+}
+
+// IPLookup does a geoip lookup of an IP address
+func IPLookup(addr string) (*IPResult, error) {
+	// TODO: This should probably have some form of daily IP cache (invalidates in 24h?)
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return nil, fmt.Errorf("address provided is not a valid ip: %s", addr)
+	}
+
+	db, err := maxminddb.Open(conf.GeoDb)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var results IPSearch
+
+	err = db.Lookup(ip, &results)
+	if err != nil {
+		return nil, err
+	}
+	res := &IPResult{
+		City:          results.City.Names["en"],
+		Country:       results.Country.Names["en"],
+		CountryCode:   results.Country.Code,
+		Continent:     results.Continent.Names["en"],
+		ContinentCode: results.Continent.Code,
+		Lat:           results.Location.Lat,
+		Long:          results.Location.Long,
+		Timezone:      results.Location.TimeZone,
+		PostalCode:    results.Postal.Code,
+		Proxy:         results.Traits.Proxy,
+	}
+
+	var subdiv []string
+	for i := 0; i < len(results.Subdivisions); i++ {
+		subdiv = append(subdiv, results.Subdivisions[i].Names["en"])
+	}
+	res.Subdivision = strings.Join(subdiv, ", ")
+
+	if names, err := net.LookupAddr(addr); err == nil {
+		for i := 0; i < len(names); i++ {
+			// these are FQDN's where absolute hosts contain a suffixed "."
+			res.Hosts = append(res.Hosts, strings.TrimSuffix(names[i], "."))
+		}
+	}
+
+	fmt.Printf("%#v\n", res)
+
+	return res, nil
+}
