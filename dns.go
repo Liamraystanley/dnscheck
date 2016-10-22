@@ -32,11 +32,14 @@ type DNSAnswer struct {
 	Want         string
 	Raw          []string
 	Answers      []string
-	Answer       string
 	ResponseTime string
 	Error        string
 	RType        string
 	IsMatch      bool
+}
+
+func (a *DNSAnswer) String() string {
+	return strings.Join(a.Answers, ", ")
 }
 
 type DNSResults struct {
@@ -44,6 +47,83 @@ type DNSResults struct {
 	Records  Answer
 	RType    string
 	ScanTime string
+}
+
+type DNSStats struct {
+	Matched    float32
+	NotMatched float32
+	Erronous   float32
+	AnsPercent AnsCountList
+}
+
+type AnsCountAnswer struct {
+	Answer     string
+	Percentage float32
+	Count      int
+}
+
+type AnsCountList []*AnsCountAnswer
+
+func (ans AnsCountList) Len() int {
+	return len(ans)
+}
+
+func (ans AnsCountList) Less(i, j int) bool {
+	if ans[i].Percentage > ans[j].Percentage {
+		return true
+	}
+
+	return false
+}
+
+func (ans AnsCountList) Swap(i, j int) {
+	ans[i], ans[j] = ans[j], ans[i]
+}
+
+func (res *DNSResults) Stats() (stats DNSStats, err error) {
+	var matched, notMatched, erronous float32
+
+	answerMap := make(map[string]int)
+
+	for i := 0; i < len(res.Records); i++ {
+		if res.Records[i].IsMatch {
+			matched++
+		} else {
+			notMatched++
+		}
+
+		if len(res.Records[i].Error) != 0 {
+			erronous++
+		}
+
+		if len(res.Records[i].Error) == 0 {
+			if _, ok := answerMap[res.Records[i].String()]; !ok {
+				answerMap[res.Records[i].String()] = 0
+			}
+
+			answerMap[res.Records[i].String()]++
+		}
+	}
+
+	// match percentages
+	stats.Matched = matched / float32(len(res.Records)) * 100
+	stats.NotMatched = notMatched / float32(len(res.Records)) * 100
+
+	// error percentages
+	stats.Erronous = erronous / float32(len(res.Records)) * 100
+
+	// generate a list of most common answers
+	for ans, count := range answerMap {
+		stats.AnsPercent = append(stats.AnsPercent, &AnsCountAnswer{
+			Answer:     ans,
+			Count:      count,
+			Percentage: float32(count) / float32(len(res.Records)) * 100,
+		})
+	}
+
+	sort.Sort(stats.AnsPercent)
+
+	return stats, nil
 }
 
 type Request []*Host
@@ -192,7 +272,6 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 				Query:        result.Host,
 				Want:         host.Want,
 				RType:        result.QueryType(),
-				Answer:       result.String(),
 				ResponseTime: fmtTime(result.RTT),
 			}
 
@@ -205,8 +284,6 @@ func LookupAll(hosts []*Host, servers []string, rtype string) (*DNSResults, erro
 					ans.IsMatch = true
 				}
 			}
-
-			ans.Answer = result.String()
 
 			out.Records = append(out.Records, ans)
 		}(hosts[i])
