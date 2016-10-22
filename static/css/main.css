@@ -52,5 +52,10 @@ footer.page-footer .footer-copyright {
 }
 
 .results a > i { color: #383838; }
-
 .dark { color: #383838; }
+.progress { background-color: #bdbdbd !important; }
+
+.badge .flag-icon {
+    display: inline-block;
+    margin-right: 5px;
+}

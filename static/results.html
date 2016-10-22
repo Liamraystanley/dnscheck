@@ -2,8 +2,34 @@
 <hr>
 
 {{ render "partials/messages.html" }}
+{{ $stats := .Results.Stats }}
+{{ $ipinfo := .Results.IPInfo }}
+
+<span>{{ printf "%#v" $stats }}</span>
+<div class="row">
+    <div class="col-md-3">
+        <div class="pull-right" style="margin-bottom: 9px;">Successful lookups ({{ printf "%.0f" $stats.Matched }}%):</div>
+        <div class="pull-right" style="margin-bottom: 9px;">Mismatched lookups ({{ printf "%.0f" $stats.NotMatched }}%):</div>
+        <div class="pull-right" style="margin-bottom: 9px;">Failed lookups ({{ printf "%.0f" $stats.Erronous }}%):</div>
+    </div>
+    <div class="col-md-9" style="margin-top: 6px;">
+        <div class="progress">
+            <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="{{ printf "%.0f" $stats.Matched }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ printf "%.0f" $stats.Matched }}%"></div>
+        </div>
+        <div class="progress">
+            <div class="progress-bar progress-bar-warning" role="progressbar" aria-valuenow="{{ printf "%.0f" $stats.NotMatched }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ printf "%.0f" $stats.NotMatched }}%"></div>
+        </div>
+        <div class="progress">
+            <div class="progress-bar progress-bar-danger" role="progressbar" aria-valuenow="{{ printf "%.0f" $stats.Erronous }}" aria-valuemin="0" aria-valuemax="100" style="width: {{ printf "%.0f" $stats.Erronous }}%"></div>
+        </div>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-8">
+        <h3>Lookup results</h3>
+        <hr>
+
         <ul class="list-group results">
         {{ range .Results.Records }}
             <li class="list-group-item list-group-item-{{ if .Error }}danger{{ else }}{{ if .IsMatch }}success{{ else }}warning{{ end }}{{ end }}">
@@ -24,10 +50,51 @@
                     {{ end }}
                 </span>
 
-                <span class="dns-answer pull-right">{{ if not .Error }}{{ .String }}{{ else }}<span class="label label-warning">No results found</span>{{ end }}</span>
+                <!--{{ if isip .String }}IT IS AN IP{{ end }}-->
+                <span class="dns-answer pull-right">
+                    {{- if not .Error }}
+                        {{- range $ans := .Answers }}
+                            {{ $ip := index $ipinfo $ans }}
+                            {{ if $ip }}
+                                <span class="badge" data-toggle="tooltip" title="{{ $ip.Country }}, {{ $ip.Continent }}{{ if $ip.Hosts }} - {{ join $ip.Hosts }}{{ end }}">
+                                    <span class="flag-icon flag-icon-{{ tolower $ip.CountryCode }}"></span>
+                                    {{- $ans }}
+                                </span>
+                            {{ else }}
+                                <span class="badge">{{ $ans }}</span>
+                            {{ end }}
+                        {{ end }}
+                    {{- else }}
+                        <span class="label label-warning">No results found</span>
+                    {{- end }}
+                </span>
             </li>
         {{ end }}
         </ul>
     </div>
-    <div class="col-md-4"></div>
+
+    <div class="col-md-4">
+        <h3>Lookup statistics</h3>
+        <hr>
+
+        {{ $statIPs := len $stats.AnsPercent }}
+        {{ if ne $statIPs 0 }}
+        <h4>Most common IP addresses:</h4>
+        <ul class="list-group">
+            {{ range $stats.AnsPercent }}
+                <li class="list-group-item list-group-item-info">
+                    <span class="badge">{{ .Count }}</span>
+
+                    {{ $ip := index $ipinfo .Answer }}
+                    {{ if $ip }}
+                        <span class="flag-icon flag-icon-{{ tolower $ip.CountryCode }}" style="display: inline-block;margin-right: 5px;"></span>
+                        <span data-toggle="tooltip" title="{{ $ip.Country }}, {{ $ip.Continent }}{{ if $ip.Hosts }} - {{ join $ip.Hosts }}{{ end }}">{{- .Answer }}</span>
+                    {{ else }}
+                        {{ .Answer }}
+                    {{ end }}
+                </li>
+            {{ end }}
+        </ul>
+        {{ end }}
+    </div>
 </div>
