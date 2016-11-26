@@ -1,0 +1,271 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"path": "github.com/Liamraystanley/go-ldns",
+			"revision": ""
+		},
+		{
+			"path": "github.com/Liamraystanley/go-sempool",
+			"revision": ""
+		},
+		{
+			"path": "github.com/alexflint/go-arg",
+			"revision": ""
+		},
+		{
+			"path": "github.com/boltdb/bolt",
+			"revision": ""
+		},
+		{
+			"path": "github.com/fatih/structs",
+			"revision": ""
+		},
+		{
+			"path": "github.com/google/go-github/github",
+			"revision": ""
+		},
+		{
+			"path": "github.com/google/go-querystring/query",
+			"revision": ""
+		},
+		{
+			"path": "github.com/gorilla/websocket",
+			"revision": ""
+		},
+		{
+			"path": "github.com/hashicorp/go-version",
+			"revision": ""
+		},
+		{
+			"path": "github.com/imdario/mergo",
+			"revision": ""
+		},
+		{
+			"path": "github.com/iris-contrib/formBinder",
+			"revision": ""
+		},
+		{
+			"path": "github.com/iris-contrib/letsencrypt",
+			"revision": ""
+		},
+		{
+			"path": "github.com/iris-contrib/websocket",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kardianos/osext",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kardianos/service",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-errors",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-fs",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-options",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/data",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/json",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/jsonp",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/markdown",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/text",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-serializer/xml",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-sessions",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-template",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-template/html",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/go-websocket",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/iris",
+			"revision": ""
+		},
+		{
+			"path": "github.com/kataras/iris/utils",
+			"revision": ""
+		},
+		{
+			"path": "github.com/klauspost/compress/flate",
+			"revision": ""
+		},
+		{
+			"path": "github.com/klauspost/compress/gzip",
+			"revision": ""
+		},
+		{
+			"path": "github.com/klauspost/compress/zlib",
+			"revision": ""
+		},
+		{
+			"path": "github.com/klauspost/cpuid",
+			"revision": ""
+		},
+		{
+			"path": "github.com/klauspost/crc32",
+			"revision": ""
+		},
+		{
+			"path": "github.com/microcosm-cc/bluemonday",
+			"revision": ""
+		},
+		{
+			"path": "github.com/miekg/dns",
+			"revision": ""
+		},
+		{
+			"path": "github.com/oschwald/maxminddb-golang",
+			"revision": ""
+		},
+		{
+			"path": "github.com/russross/blackfriday",
+			"revision": ""
+		},
+		{
+			"path": "github.com/shurcooL/sanitized_anchor_name",
+			"revision": ""
+		},
+		{
+			"path": "github.com/valyala/bytebufferpool",
+			"revision": ""
+		},
+		{
+			"path": "github.com/valyala/fasthttp",
+			"revision": ""
+		},
+		{
+			"path": "github.com/valyala/fasthttp/fasthttpadaptor",
+			"revision": ""
+		},
+		{
+			"path": "github.com/valyala/fasthttp/fasthttputil",
+			"revision": ""
+		},
+		{
+			"path": "github.com/xenolf/lego/acme",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/curve25519",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/ed25519",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/ocsp",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/ssh",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/crypto/ssh/terminal",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/context",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/html",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/html/atom",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/net/publicsuffix",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/unix",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/windows",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/windows/registry",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/windows/svc",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/windows/svc/eventlog",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/sys/windows/svc/mgr",
+			"revision": ""
+		},
+		{
+			"path": "golang.org/x/time/rate",
+			"revision": ""
+		},
+		{
+			"path": "gopkg.in/square/go-jose.v1",
+			"revision": ""
+		},
+		{
+			"path": "gopkg.in/square/go-jose.v1/cipher",
+			"revision": ""
+		},
+		{
+			"path": "gopkg.in/square/go-jose.v1/json",
+			"revision": ""
+		}
+	],
+	"rootPath": "github.com/Liamraystanley/dnscheck"
+}

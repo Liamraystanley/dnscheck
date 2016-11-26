@@ -19,24 +19,37 @@ LD_FLAGS += -s -w
 
 generate:
 	@echo "\n\033[0;36m [ Generating gocode from assets... ]\033[0;m"
-	$(GOPATH)/bin/go-bindata -nometadata static/...
+	test -f $(GOPATH)/bin/go-bindata || go get -v github.com/jteeuwen/go-bindata/...
+	$(GOPATH)/bin/go-bindata data/...
 
 fetch:
 	@echo "\n\033[0;36m [ Fetching dependencies ]\033[0;m"
-	go get -d ./...
-	test -f $(GOPATH)/bin/gometalinter.v1 || go get -u gopkg.in/alecthomas/gometalinter.v1
-	test -f $(GOPATH)/bin/gox || go get github.com/mitchellh/gox
-	test -f $(GOPATH)/bin/go-bindata || go get github.com/jteeuwen/go-bindata/...
+	# go get -v -d ./... <-- legacy style
+	test -f $(GOPATH)/bin/govendor || go get -v -u github.com/kardianos/govendor
 
-lint: test
+	$(GOPATH)/bin/govendor sync
+
+lint: clean fetch generate
 	@echo "\n\033[0;36m [ Installng linters ]\033[0;m"
+	test -f $(GOPATH)/bin/gometalinter.v1 || go get -v -u gopkg.in/alecthomas/gometalinter.v1
 	$(GOPATH)/bin/gometalinter.v1 -i > /dev/null
-	@echo "\n\033[0;36m [ Running linters ]\033[0;m"
-	$(GOPATH)/bin/gometalinter.v1 --exclude="bindata*" --cyclo-over=15 --min-confidence=.30 --deadline=10s --dupl-threshold=40 -E gofmt -E goimports -E misspell -E test ./...
+	@echo "\n\033[0;36m [ Running SHORT linting ]\033[0;m"
+	$(GOPATH)/bin/gometalinter.v1 --vendored-linters --sort=path --exclude="bindata*" --exclude "vendor" --min-confidence=0.3 --dupl-threshold=70 --deadline 15s --disable-all -E structcheck -E ineffassign -E dupl -E golint -E gotype -E varcheck -E interfacer -E goconst -E gosimple -E staticcheck -E unused -E gofmt -E goimports -E misspell ./...
+
+lintextended: clean fetch generate
+	@echo "\n\033[0;36m [ Installng linters ]\033[0;m"
+	test -f $(GOPATH)/bin/gometalinter.v1 || go get -v -u gopkg.in/alecthomas/gometalinter.v1
+	$(GOPATH)/bin/gometalinter.v1 -i > /dev/null
+	@echo "\n\033[0;36m [ Running EXTENDED linting ]\033[0;m"
+	$(GOPATH)/bin/gometalinter.v1 --vendored-linters --sort=path --exclude="bindata*" --exclude "vendor" --min-confidence=0.3 --dupl-threshold=70 --deadline 1m --disable-all -E structcheck -E aligncheck -E ineffassign -E dupl -E golint -E gotype -E errcheck -E varcheck -E interfacer -E goconst -E gosimple -E staticcheck -E unused -E gofmt -E goimports -E misspell ./...
 
 test: clean fetch generate
-	@echo "\n\033[0;36m [ Running tests ]\033[0;m"
-	go test -v -timeout 2m ./...
+	@echo "\n\033[0;36m [ Running SHORT tests ]\033[0;m"
+	go test -v -timeout 30s -short $(shell go list ./... | grep -v "vendor/")
+
+testextended: clean fetch generate
+	@echo "\n\033[0;36m [ Running EXTENDED tests ]\033[0;m"
+	go test -v -timeout 2m $(shell go list ./... | grep -v "vendor/")
 
 debug: clean fetch generate
 	@echo "\n\033[0;36m [ Executing ]\033[0;m"
@@ -52,11 +65,13 @@ clean:
 
 cc: clean fetch generate
 	@echo "\n\033[0;36m [ Cross compiling ]\033[0;m"
+	test -f $(GOPATH)/bin/gox || go get -v github.com/mitchellh/gox
 	mkdir -p ${RELEASE_ROOT}/dist
 	$(GOPATH)/bin/gox -verbose -ldflags="${LD_FLAGS}" -os="linux freebsd netbsd openbsd" -arch="386 amd64 arm" -output "${RELEASE_ROOT}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
 
 ccsmall: clean fetch generate
 	@echo "\n\033[0;36m [ Cross compiling ]\033[0;m"
+	test -f $(GOPATH)/bin/gox || go get -v github.com/mitchellh/gox
 	mkdir -p ${RELEASE_ROOT}/dist
 	$(GOPATH)/bin/gox -verbose -ldflags="${LD_FLAGS}" -os="linux" -arch="amd64" -output "${RELEASE_ROOT}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
 

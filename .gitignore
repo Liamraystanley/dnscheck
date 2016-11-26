@@ -1,7 +1,10 @@
 *.exe
 *.test
 *.prof
-vendor
+
+# go version deps
+vendor/*
+!vendor/*.json
 .glide
 *.lock
 
