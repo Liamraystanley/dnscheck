@@ -3,11 +3,11 @@
 	"ignore": "test",
 	"package": [
 		{
-			"path": "github.com/Liamraystanley/go-ldns",
+			"path": "github.com/lrstanley/go-ldns",
 			"revision": ""
 		},
 		{
-			"path": "github.com/Liamraystanley/go-sempool",
+			"path": "github.com/lrstanley/go-sempool",
 			"revision": ""
 		},
 		{
@@ -267,5 +267,5 @@
 			"revision": ""
 		}
 	],
-	"rootPath": "github.com/Liamraystanley/dnscheck"
+	"rootPath": "github.com/lrstanley/dnscheck"
 }

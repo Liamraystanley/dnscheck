@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	ldns "github.com/Liamraystanley/go-ldns"
-	sempool "github.com/Liamraystanley/go-sempool"
+	ldns "github.com/lrstanley/go-ldns"
+	sempool "github.com/lrstanley/go-sempool"
 	"github.com/miekg/dns"
 )
 

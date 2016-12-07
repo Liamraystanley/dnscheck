@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	ldns "github.com/Liamraystanley/go-ldns"
+	ldns "github.com/lrstanley/go-ldns"
 	arg "github.com/alexflint/go-arg"
 	"github.com/kataras/go-template/html"
 	"github.com/kataras/iris"
